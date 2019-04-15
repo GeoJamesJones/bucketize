@@ -233,7 +233,7 @@ def process_netowl_json(document_file, json_data, web_url, query_string, categor
                     if 'tail' in em:
                         base_entity['tail'] = get_tail(content, int(em['tail']), 255)
 
-                base_entity['doc_link'] = web_url_base
+                base_entity['doc_link'] = web_url
                 base_entity['query'] = query_string
                 base_entity['category'] = category
 
@@ -423,6 +423,7 @@ def main():
     parser.add_argument("-m", "--max", help="Max number of results to return", required=True)
     parser.add_argument("-d", "--directory", help="Directory to write text files harvested from the web.", required=True)
     parser.add_argument("-c", "--category", help="Category for query.", required=True)
+    parser.add_argument("-g", "--geoevent", help="GeoEvent URL.", required=True)
     args = parser.parse_args()
     # to search 
     query = args.query
@@ -458,9 +459,13 @@ def main():
             for entity in entity_list:
                 if entity.geo_entity == True:
                     if entity.geo_type == 'coordinate' or entity.geo_type == 'address' or entity.geo_subtype == 'city':
+                        post_to_geoevent(entity.toJSON(), args.geoevent)
                         entity_count +=1
-            print(" Successfully processed {0} entities in {1}".format(str(entity_count), filename + '.json'))
-            print("-------------------------------------------------------")
+
+        os.remove(text_file_path)
+        os.remove(text_file_path + ".json")
+        print(" Successfully processed {0} entities in {1}".format(str(entity_count), filename + '.json'))
+        print("-------------------------------------------------------")
 
 if __name__=="__main__":    
     main()
