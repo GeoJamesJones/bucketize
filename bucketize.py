@@ -32,6 +32,10 @@ class NetOwl_Entity:
             self.post_text = value_dict['tail']
         if 'doc_link' in value_dict:
             self.doc_link = value_dict['doc_link']
+        if 'query' in value_dict:
+            self.query = value_dict['query']
+        if 'category' in value_dict:
+            self.category = value_dict['category']
 
         if 'geo_entity' in value_dict:
             self.geo_entity = value_dict['geo_entity']
@@ -127,7 +131,7 @@ class Text_Item:
         return json.dumps(self, default=lambda o: o.__dict__, 
             sort_keys=True, indent=4)
 
-def process_netowl_json(document_file, json_data, web_url_base):
+def process_netowl_json(document_file, json_data, web_url, query_string, category):
     doc_entities = []
     doc_links = []
     doc_events = []
@@ -230,6 +234,8 @@ def process_netowl_json(document_file, json_data, web_url_base):
                         base_entity['tail'] = get_tail(content, int(em['tail']), 255)
 
                 base_entity['doc_link'] = web_url_base
+                base_entity['query'] = query_string
+                base_entity['category'] = category
 
                 # Turns entity information into a class object for storage and transformation
                 netowl_entity_object = NetOwl_Entity(base_entity)
@@ -396,7 +402,6 @@ def get_head(text, headpos, numchars):
     thehead = text[wheretostart: headpos]
     return thehead
 
-
 def get_tail(text, tailpos, numchars):
     """Return text at end of entity."""
     wheretoend = tailpos + numchars
@@ -404,12 +409,20 @@ def get_tail(text, tailpos, numchars):
         wheretoend = len(text)
     thetail = text[tailpos: wheretoend]
     return thetail
+
+def post_to_geoevent(json_data, geoevent_url):
+    headers = {
+        'Content-Type': 'application/json',
+                }
+
+    response = requests.post((geoevent_url), headers=headers, data=json_data)
   
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-q", "--query", help="Query for Google Search", required=True)
     parser.add_argument("-m", "--max", help="Max number of results to return", required=True)
     parser.add_argument("-d", "--directory", help="Directory to write text files harvested from the web.", required=True)
+    parser.add_argument("-c", "--category", help="Category for query.", required=True)
     args = parser.parse_args()
     # to search 
     query = args.query
@@ -439,14 +452,13 @@ def main():
         with open(text_file_path + ".json", 'rb') as json_file:
             data = json.load(json_file)
 
-            entity_list, links_list, events_list = process_netowl_json(filename, data, j)
+            entity_list, links_list, events_list = process_netowl_json(filename, data, j, query, args.category)
 
             entity_count = 0
             for entity in entity_list:
                 if entity.geo_entity == True:
                     if entity.geo_type == 'coordinate' or entity.geo_type == 'address' or entity.geo_subtype == 'city':
                         entity_count +=1
-                        print(vars(entity))
             print(" Successfully processed {0} entities in {1}".format(str(entity_count), filename + '.json'))
             print("-------------------------------------------------------")
 
