@@ -30,6 +30,8 @@ class NetOwl_Entity:
             self.pre_text = value_dict['head']
         if 'tail' in value_dict:
             self.post_text = value_dict['tail']
+        if 'doc_link' in value_dict:
+            self.doc_link = value_dict['doc_link']
 
         if 'geo_entity' in value_dict:
             self.geo_entity = value_dict['geo_entity']
@@ -125,7 +127,7 @@ class Text_Item:
         return json.dumps(self, default=lambda o: o.__dict__, 
             sort_keys=True, indent=4)
 
-def process_netowl_json(document_file, json_data):
+def process_netowl_json(document_file, json_data, web_url_base):
     doc_entities = []
     doc_links = []
     doc_events = []
@@ -226,6 +228,8 @@ def process_netowl_json(document_file, json_data):
                         base_entity['head'] = get_head(content, int(em['head']), 255)
                     if 'tail' in em:
                         base_entity['tail'] = get_tail(content, int(em['tail']), 255)
+
+                base_entity['doc_link'] = web_url_base
 
                 # Turns entity information into a class object for storage and transformation
                 netowl_entity_object = NetOwl_Entity(base_entity)
@@ -419,7 +423,7 @@ def main():
     for j in search(query, tld="com", num=int(args.max), stop=10, pause=2):
         count +=1
         r = requests.get(j)
-        soup = BeautifulSoup(r.content)
+        soup = BeautifulSoup(r.content, features="lxml")
 
         soup_list = [s.extract() for s in soup(['style', 'script', '[document]', 'head', 'title'])]
         visible_text = soup.getText()
@@ -435,12 +439,16 @@ def main():
         with open(text_file_path + ".json", 'rb') as json_file:
             data = json.load(json_file)
 
-            entity_list, links_list, events_list = process_netowl_json(filename, data)
+            entity_list, links_list, events_list = process_netowl_json(filename, data, j)
 
+            entity_count = 0
             for entity in entity_list:
                 if entity.geo_entity == True:
                     if entity.geo_type == 'coordinate' or entity.geo_type == 'address' or entity.geo_subtype == 'city':
+                        entity_count +=1
                         print(vars(entity))
+            print(" Successfully processed {0} entities in {1}".format(str(entity_count), filename + '.json'))
+            print("-------------------------------------------------------")
 
 if __name__=="__main__":    
     main()
