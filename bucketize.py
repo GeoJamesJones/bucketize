@@ -4,7 +4,11 @@ import os
 import json
 import string
 import urllib3
+import threading
+import queue
+
 from bs4 import BeautifulSoup
+from random import randint
 
 try: 
     from googlesearch import search 
@@ -417,6 +421,40 @@ def post_to_geoevent(json_data, geoevent_url):
 
     response = requests.post((geoevent_url), headers=headers, data=json_data)
   
+def worker():
+    url = q.get()
+    r = requests.get(url)
+    soup = BeautifulSoup(r.content, features="lxml")
+
+    soup_list = [s.extract() for s in soup(['style', 'script', '[document]', 'head', 'title'])]
+    visible_text = soup.getText()
+
+    filename = arg_query.replace(" ", "_") + str(randint(1,1000))
+    text_file_path = os.path.join(arg_directory, filename + '.txt')
+    with open(text_file_path, 'w', encoding='utf-8') as text_file:
+        print_text = cleanup_text(visible_text)
+        text_file.write(print_text)
+        text_file.close()
+
+    netowl_curl(text_file_path, arg_directory, ".json", netowl_key)
+
+    with open(text_file_path + ".json", 'rb') as json_file:
+        data = json.load(json_file)
+
+        entity_list, links_list, events_list = process_netowl_json(filename, data, url, arg_query, arg_category)
+
+        entity_count = 0
+        for entity in entity_list:
+            if entity.geo_entity == True:
+                if entity.geo_type == 'coordinate' or entity.geo_type == 'address' or entity.geo_subtype == 'city':
+                    post_to_geoevent(entity.toJSON(), arg_geoevent)
+                    entity_count +=1
+
+    os.remove(text_file_path)
+    os.remove(text_file_path + ".json")
+    print(" Successfully processed {0} entities in {1}".format(str(entity_count), filename + '.json'))
+    print("-------------------------------------------------------")
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-q", "--query", help="Query for Google Search", required=True)
@@ -430,43 +468,28 @@ def main():
 
     urllib3.disable_warnings()
 
+    global arg_query
+    global arg_directory 
+    global netowl_key 
+    global arg_category 
+    global arg_geoevent
+    global q
+
+    arg_query = args.query
+    arg_directory = args.directory
+    arg_category = args.category
+    arg_geoevent = args.geoevent
     netowl_key = 'netowl ff5e6185-5d63-459b-9765-4ebb905affc8'
+
+    q = queue.Queue()
 
     count = 0
   
     for j in search(query, tld="com", num=int(args.max), stop=10, pause=2):
         count +=1
-        r = requests.get(j)
-        soup = BeautifulSoup(r.content, features="lxml")
-
-        soup_list = [s.extract() for s in soup(['style', 'script', '[document]', 'head', 'title'])]
-        visible_text = soup.getText()
-
-        filename = args.query.replace(" ", "_") + str(count)
-        text_file_path = os.path.join(args.directory, filename + '.txt')
-        with open(text_file_path, 'w', encoding='utf-8') as text_file:
-            print_text = cleanup_text(visible_text)
-            text_file.write(print_text)
-            text_file.close()
-
-        netowl_curl(text_file_path, args.directory, ".json", netowl_key)
-
-        with open(text_file_path + ".json", 'rb') as json_file:
-            data = json.load(json_file)
-
-            entity_list, links_list, events_list = process_netowl_json(filename, data, j, query, args.category)
-
-            entity_count = 0
-            for entity in entity_list:
-                if entity.geo_entity == True:
-                    if entity.geo_type == 'coordinate' or entity.geo_type == 'address' or entity.geo_subtype == 'city':
-                        post_to_geoevent(entity.toJSON(), args.geoevent)
-                        entity_count +=1
-
-        os.remove(text_file_path)
-        os.remove(text_file_path + ".json")
-        print(" Successfully processed {0} entities in {1}".format(str(entity_count), filename + '.json'))
-        print("-------------------------------------------------------")
+        t = threading.Thread(target=worker)
+        t.start()
+        q.put(j)
 
 if __name__=="__main__":    
     main()
