@@ -444,8 +444,9 @@ def main():
 
         filename = args.query.replace(" ", "_") + str(count)
         text_file_path = os.path.join(args.directory, filename + '.txt')
-        with open(text_file_path, 'w') as text_file:
-            text_file.write(visible_text)
+        with open(text_file_path, 'w', encoding='utf-8') as text_file:
+            print_text = cleanup_text(visible_text)
+            text_file.write(print_text)
             text_file.close()
 
         netowl_curl(text_file_path, args.directory, ".json", netowl_key)
