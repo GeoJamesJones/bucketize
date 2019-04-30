@@ -6,7 +6,6 @@ import string
 import urllib3
 import time
 from bs4 import BeautifulSoup
-
 from GPLogger import GPLogger
 
 try: 
@@ -433,8 +432,8 @@ def main():
     urllib3.disable_warnings()
 
     netowl_key = 'netowl ff5e6185-5d63-459b-9765-4ebb905affc8'
-    geoevent_endpoint = r'https://wdcrealtimeevents.esri.com:6143/geoevent/rest/receiver/ca-query-in'
-    temp_directory = r'/Users/jame9353/Documents/temp_data/NetOwl/text'
+    geoevent_endpoint = r'https://192.168.153.138:6143/geoevent/rest/receiver/netowl-news-in'
+    temp_directory = r'C:\netowl'
 
     downloaded_urls = []
 
@@ -450,7 +449,7 @@ def main():
             logger.debug("Getting Data From: {}".format(j))
             if j not in downloaded_urls:    
                 downloaded_urls.append(j)
-                logger.debug("{0} has not been downloaded, beginning processing.".format(j))
+                logger.debug("{0} has been downloaded, beginning processing.".format(j))
                 count +=1
                 try:
                     r = requests.get(j)
@@ -491,7 +490,7 @@ def main():
 
                 
                 except Exception as e:
-                    logger.error("Unable to query data from {0}, skipping.".format(j, e))
+                    logger.error("Unable to query data from {0}, skipping. {1}".format(j, e))
 
         logger.info("Finished processing of {0}, sleeping for {1} seconds".format(query, "300"))
         time.sleep(300)
