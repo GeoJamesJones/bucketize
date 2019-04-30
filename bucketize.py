@@ -4,10 +4,13 @@ import os
 import json
 import string
 import urllib3
+import time
 from bs4 import BeautifulSoup
 
+from GPLogger import GPLogger
+
 try: 
-    from googlesearch import search 
+    from googlesearch import search_news 
 except ImportError:  
     print("No module named 'google' found")
 
@@ -421,51 +424,76 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-q", "--query", help="Query for Google Search", required=True)
     parser.add_argument("-m", "--max", help="Max number of results to return", required=True)
-    parser.add_argument("-d", "--directory", help="Directory to write text files harvested from the web.", required=True)
     parser.add_argument("-c", "--category", help="Category for query.", required=True)
-    parser.add_argument("-g", "--geoevent", help="GeoEvent URL.", required=True)
     args = parser.parse_args()
     # to search 
     query = args.query
+    logger = GPLogger("Google News DataPump")
 
     urllib3.disable_warnings()
 
     netowl_key = 'netowl ff5e6185-5d63-459b-9765-4ebb905affc8'
+    geoevent_endpoint = r'https://wdcrealtimeevents.esri.com:6143/geoevent/rest/receiver/ca-query-in'
+    temp_directory = r'/Users/jame9353/Documents/temp_data/NetOwl/text'
+
+    downloaded_urls = []
 
     count = 0
+
+    logger.info('Start Querying Google News...')
+
+    while True:
+
+        logger.info("Querying Google News for: {}".format(query))
   
-    for j in search(query, tld="com", num=int(args.max), stop=10, pause=2):
-        count +=1
-        r = requests.get(j)
-        soup = BeautifulSoup(r.content, features="lxml")
+        for j in search_news(query, tld="com", num=int(args.max), stop=10, pause=2):
+            logger.debug("Getting Data From: {}".format(j))
+            if j not in downloaded_urls:    
+                downloaded_urls.append(j)
+                logger.debug("{0} has not been downloaded, beginning processing.".format(j))
+                count +=1
+                try:
+                    r = requests.get(j)
+                    
+                    soup = BeautifulSoup(r.content, features="lxml")
+                    soup_list = [s.extract() for s in soup(['style', 'script', '[document]', 'head', 'title'])]
+                    visible_text = soup.getText()
 
-        soup_list = [s.extract() for s in soup(['style', 'script', '[document]', 'head', 'title'])]
-        visible_text = soup.getText()
+                    filename = args.query.replace(" ", "_") + str(count)
+                    text_file_path = os.path.join(temp_directory, filename + '.txt')
+                    with open(text_file_path, 'w') as text_file:
+                        text_file.write(visible_text)
+                        text_file.close()
+                    
+                    logger.debug("{0} has been downloaded, passing data to NetOwl API.".format(j))
 
-        filename = args.query.replace(" ", "_") + str(count)
-        text_file_path = os.path.join(args.directory, filename + '.txt')
-        with open(text_file_path, 'w') as text_file:
-            text_file.write(visible_text)
-            text_file.close()
+                    netowl_curl(text_file_path, temp_directory, ".json", netowl_key)
+                    logger.debug("{0} successfully processed through NetOwl API.".format(j))
 
-        netowl_curl(text_file_path, args.directory, ".json", netowl_key)
+                    with open(text_file_path + ".json", 'rb') as json_file:
+                        data = json.load(json_file)
 
-        with open(text_file_path + ".json", 'rb') as json_file:
-            data = json.load(json_file)
+                        entity_list, links_list, events_list = process_netowl_json(filename, data, j, query, args.category)
+                        logger.debug("{0} entities extracted from {1}".format(str(len(entity_list)), j))
+                        doc_entities = []
+                        for entity in entity_list:
+                            if entity.geo_entity == True:
+                                if entity.geo_type == 'coordinate' or entity.geo_type == 'address' or entity.geo_subtype == 'city':
+                                    doc_entities.append(vars(entity))
 
-            entity_list, links_list, events_list = process_netowl_json(filename, data, j, query, args.category)
 
-            entity_count = 0
-            for entity in entity_list:
-                if entity.geo_entity == True:
-                    if entity.geo_type == 'coordinate' or entity.geo_type == 'address' or entity.geo_subtype == 'city':
-                        post_to_geoevent(entity.toJSON(), args.geoevent)
-                        entity_count +=1
+                        #logger.info(doc_entities)
+                        post_to_geoevent(json.dumps(doc_entities), geoevent_endpoint)
+                        logger.debug("{0} spatial entities passed to {1}".format(str(len(doc_entities)), geoevent_endpoint))
 
-        os.remove(text_file_path)
-        os.remove(text_file_path + ".json")
-        print(" Successfully processed {0} entities in {1}".format(str(entity_count), filename + '.json'))
-        print("-------------------------------------------------------")
+                    os.remove(text_file_path)
+                    os.remove(text_file_path + ".json")
 
+                
+                except Exception as e:
+                    logger.error("Unable to query data from {0}, skipping.".format(j, e))
+
+        logger.info("Finished processing of {0}, sleeping for {1} seconds".format(query, "300"))
+        time.sleep(300)
 if __name__=="__main__":    
     main()
