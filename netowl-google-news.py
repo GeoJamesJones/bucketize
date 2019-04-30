@@ -1,3 +1,4 @@
+import argparse
 import requests
 import os
 import json
@@ -5,6 +6,7 @@ import string
 import urllib3
 import time
 from bs4 import BeautifulSoup
+
 from GPLogger import GPLogger
 
 try: 
@@ -419,16 +421,17 @@ def post_to_geoevent(json_data, geoevent_url):
     response = requests.post((geoevent_url), headers=headers, data=json_data)
   
 def main():
-
     # to search 
     query = "Virginia Beach, VA"
     logger = GPLogger("Google News DataPump")
+    max_query = 10
+    query_category = 'News'
 
     urllib3.disable_warnings()
 
     netowl_key = 'netowl ff5e6185-5d63-459b-9765-4ebb905affc8'
-    geoevent_endpoint = r'https://192.168.153.138:6143/geoevent/rest/receiver/netowl-news-in'
-    temp_directory = r'C:\netowl'
+    geoevent_endpoint = r'https://wdcrealtimeevents.esri.com:6143/geoevent/rest/receiver/ca-query-in'
+    temp_directory = r'/Users/jame9353/Documents/temp_data/NetOwl/text'
 
     downloaded_urls = []
 
@@ -440,11 +443,11 @@ def main():
 
         logger.info("Querying Google News for: {}".format(query))
   
-        for j in search_news(query, tld="com", num=10, stop=10, pause=2):
+        for j in search_news(query, tld="com", num=int(max_query), stop=10, pause=2):
             logger.debug("Getting Data From: {}".format(j))
             if j not in downloaded_urls:    
                 downloaded_urls.append(j)
-                logger.debug("{0} has been downloaded, beginning processing.".format(j))
+                logger.debug("{0} has not been downloaded, beginning processing.".format(j))
                 count +=1
                 try:
                     r = requests.get(j)
@@ -467,7 +470,7 @@ def main():
                     with open(text_file_path + ".json", 'rb') as json_file:
                         data = json.load(json_file)
 
-                        entity_list, links_list, events_list = process_netowl_json(filename, data, j, query, "News")
+                        entity_list, links_list, events_list = process_netowl_json(filename, data, j, query, query_category)
                         logger.debug("{0} entities extracted from {1}".format(str(len(entity_list)), j))
                         doc_entities = []
                         for entity in entity_list:
@@ -485,7 +488,7 @@ def main():
 
                 
                 except Exception as e:
-                    logger.error("Unable to query data from {0}, skipping. {1}".format(j, e))
+                    logger.error("Unable to query data from {0}, skipping.".format(j, e))
 
         logger.info("Finished processing of {0}, sleeping for {1} seconds".format(query, "300"))
         time.sleep(300)
