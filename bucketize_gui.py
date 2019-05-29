@@ -479,7 +479,7 @@ def main():
             arg_directory = temp_dir
             arg_category = values['_CATEGORY_'][0]
             arg_geoevent = r'http://wdcrealtimeevents.esri.com:6180/geoevent/rest/receiver/ca-query-in'
-            netowl_key = 'netowl ff5e6185-5d63-459b-9765-4ebb905affc8'
+            netowl_key = 'netowl e9f66c3a-b7b4-4814-b015-aaf9b515bd83'
 
             count = 0
 
