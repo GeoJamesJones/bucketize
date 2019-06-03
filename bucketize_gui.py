@@ -471,7 +471,7 @@ def main():
             window.FindElement('_OUTPUT_').Update(values['_QUERY_'])
 
             arg_query = values['_QUERY_']
-            temp_dir = r'C:\temp_files'
+            temp_dir = r'/Users/jame9353/Documents/temp_data/bucketize'
             try:
                 os.mkdir(temp_dir)
             except:
@@ -520,7 +520,7 @@ def main():
             except:
                 break
 
-    os.removedirs(temp_dir)
+    #os.removedirs(temp_dir)
     window.Close()
 
 if __name__=="__main__":    
