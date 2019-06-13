@@ -423,10 +423,6 @@ def post_to_geoevent(json_data, geoevent_url):
                 }
 
     response = requests.post((geoevent_url), headers=headers, data=json_data)
-  
-def worker():
-    url = q.get()
-
 
 def main():
     layout = [  
