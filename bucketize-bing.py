@@ -314,41 +314,45 @@ def main():
                 print("\nRelevant HTTP Headers:\n")
                 print("\n".join(headers))
                 print("\nJSON Response:\n")
-                for value in json.loads(result)['webPages']['value']:
-                    print(json.dumps(value, indent=4))
+                try:
+                    for value in json.loads(result)['webPages']['value']:
+                        print(json.dumps(value, indent=4))
 
-                    r = requests.get(value['url'])
-                    soup = BeautifulSoup(r.content, features="html.parser")
+                        r = requests.get(value['url'], verify=False, timeout=10)
+                        soup = BeautifulSoup(r.content, features="html.parser")
 
-                    soup_list = [s.extract() for s in soup(['style', 'script', '[document]', 'head', 'title'])]
-                    visible_text = soup.getText()
+                        soup_list = [s.extract() for s in soup(['style', 'script', '[document]', 'head', 'title'])]
+                        visible_text = soup.getText()
 
-                    filename = term.replace(" ", "_") + str(randint(1,1000))
-                    text_file_path = os.path.join(directory, filename + '.txt')
-                    with open(text_file_path, 'w', encoding='utf-8') as text_file:
-                        print_text = cleanup_text(visible_text)
-                        text_file.write(print_text)
-                        text_file.close()
+                        filename = term.replace(" ", "_") + str(randint(1,1000))
+                        text_file_path = os.path.join(directory, filename + '.txt')
+                        with open(text_file_path, 'w', encoding='utf-8') as text_file:
+                            print_text = cleanup_text(visible_text)
+                            text_file.write(print_text)
+                            text_file.close()
 
-                    netowl_curl(text_file_path, directory, ".json", netowl_key)
+                        netowl_curl(text_file_path, directory, ".json", netowl_key)
 
-                    with open(text_file_path + ".json", 'rb') as json_file:
-                        data = json.load(json_file)
+                        with open(text_file_path + ".json", 'rb') as json_file:
+                            data = json.load(json_file)
 
-                        entity_list = process_netowl_json(filename, data, value['url'], term, category, value['dateLastCrawled'], value['snippet'], value['language'])
+                            entity_list = process_netowl_json(filename, data, value['url'], term, category, value['dateLastCrawled'], value['snippet'], value['language'])
 
-                        spatial_entities = []
+                            spatial_entities = []
+                            
+                            for entity in entity_list:
+                                if entity.geo_entity == True:
+                                    if entity.geo_type == 'coordinate' or entity.geo_type == 'address' or entity.geo_subtype == 'city':
+                                        spatial_entities.append(vars(entity))
                         
-                        for entity in entity_list:
-                            if entity.geo_entity == True:
-                                if entity.geo_type == 'coordinate' or entity.geo_type == 'address' or entity.geo_subtype == 'city':
-                                    spatial_entities.append(vars(entity))
-                    
-                    os.remove(text_file_path)
-                    os.remove(text_file_path + ".json")
+                        os.remove(text_file_path)
+                        os.remove(text_file_path + ".json")
 
-                    #post_to_geoevent(spatial_entities, geoevent_url)
-                    print(spatial_entities)
+                        #post_to_geoevent(spatial_entities, geoevent_url)
+                        print(spatial_entities)
+                
+                except Exception as e:
+                    print(str(e))
 
             else:
 
